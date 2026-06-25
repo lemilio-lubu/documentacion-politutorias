@@ -1,0 +1,48 @@
+Actúa como un desarrollador backend senior experto en NestJS, TypeScript y TDD bajo Clean Architecture. Tu tarea es implementar exclusivamente el código de producción mínimo necesario para pasar de la **fase ROJA a la fase VERDE** del ciclo TDD.
+
+Actualmente existen tests fallando tanto para el Controller (contrato HTTP) como para el Service/UseCase (reglas de negocio). Debes hacer que todos los tests pasen de forma estricta sin añadir lógica redundante, optimizaciones ni refactorizaciones prematuras.
+
+Sigue rigurosamente el siguiente orden y directrices de implementación:
+
+---
+
+### 🛠️ Archivos a crear o modificar
+
+1. `src/tasks/dto/create-task.dto.ts` (Validaciones y tipos de entrada)
+2. `src/tasks/entities/task.entity.ts` o modelo de dominio (Estructura de datos)
+3. `src/tasks/tasks.service.ts` (Lógica de negocio / UseCase)
+4. `src/tasks/tasks.controller.ts` (Controlador HTTP)
+
+---
+
+### 📋 Orden Secuencial de Implementación
+
+#### Paso 1: Contrato de Datos y Entidad de Dominio
+
+* Define el `CreateTaskDto` con las reglas de validación exactas de `class-validator` para que el test e2e del controlador falle con `400 Bad Request` ante payloads inválidos.
+* Define la entidad `Task` o interfaz de dominio con las propiedades requeridas según el handshake con el frontend.
+
+#### Paso 2: Lógica del Service / UseCase (Pasar tests unitarios a verde)
+
+* Implementa el método `create()` en `TasksService`.
+* Integra de forma mínima el `TasksRepository` inyectado (usando métodos básicos como `findByTitle` y `save`).
+* **Manejo de conflictos:** Si el repositorio encuentra una tarea con el mismo título, lanza un `ConflictException` (o excepción de negocio que se mapee a esta) para cumplir el caso de uso de título duplicado.
+* **Manejo de errores:** Permite que los errores inesperados del repositorio se propaguen o lánzalos limpiamente según lo esperado por el test unitario.
+
+#### Paso 3: Capa de Entrada / Controller (Pasar tests e2e a verde)
+
+* Inyecta el `TasksService` en el `TasksController`.
+* Implementa el endpoint `POST /api/tasks` aplicando los decoradores HTTP de NestJS necesarios y decoradores de Swagger.
+* Adapta los datos entrantes del request hacia el método del Service.
+* Asegura el formato exacto de respuesta HTTP: Retorna status `201 Created` y mapea la respuesta con la estructura JSON exacta definida en el contrato.
+* Deja que el filtro de excepciones global de NestJS o un bloque try/catch básico capture el `ConflictException` del Service y devuelva un status `409 Conflict`.
+
+---
+
+### 🚫 Reglas estrictas de lo que NO debe cambiar
+
+* **No refactorizar:** No apliques patrones de diseño avanzados, abstracciones complejas ni optimizaciones de rendimiento en este momento. Escribe el código mínimo necesario.
+* **No alterar el contrato:** Está prohibido agregar campos extra al request/response, cambiar los códigos de estado HTTP pactados o modificar los nombres de las rutas.
+* **Mocks intactos:** No modifiques los mocks de los archivos de pruebas. El Service debe interactuar con el mock del Repository configurado en el test, y el Controller con el mock del Service.
+
+Implementa el código para cada uno de los archivos asegurándote de que, al finalizar, la ejecución de `npm run test` y `npm run test:e2e` resulte en un **100% de tests exitosos (VERDE)**.
