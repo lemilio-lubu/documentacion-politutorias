@@ -1,0 +1,46 @@
+Actúa como un desarrollador backend senior experto en NestJS, TypeScript y TDD. Tu tarea es generar **únicamente los archivos de prueba para la fase ROJA (Red) de TDD**. No debes implementar ninguna lógica productiva en los controladores o servicios correspondientes; estos tests deben fallar inicialmente.
+
+Usa **Jest** como framework de testing y **supertest** para las pruebas e2e. Basándote estrictamente en el contrato funcional provisto, genera el código completo para los siguientes dos archivos respetando las rutas y especificaciones indicadas:
+
+---
+
+### 1️⃣ Archivo: `test/tasks/tasks.e2e-spec.ts` (Test e2e del Controller)
+
+**Especificaciones técnicas:**
+
+* **Propósito:** Validar exclusivamente el contrato HTTP y el handshake con el frontend. No pruebes lógica de negocio interna.
+* **Framework:** Jest + Supertest.
+* **Mocks:** Mockea por completo el `TasksService` (o UseCase) utilizando `jest.fn()` para controlar sus respuestas y excepciones.
+* **Casos de prueba a incluir (Deben fallar inicialmente al no existir la implementación):**
+1. `POST /api/tasks` - **2.1 Creación Exitosa:** Retorna status `201 Created`, valida la estructura exacta del JSON de respuesta especificado en el contrato cuando el request body es válido.
+2. `POST /api/tasks` - **4.1 Error de Validación (400 Bad Request):** Envía un payload inválido (ej: `title` vacío, `dueDate` con formato incorrecto) y verifica que los decoradores de validación del DTO respondan con un `400` y la estructura de error esperada.
+3. `POST /api/tasks` - **4.2 Conflicto de Título Duplicado (409 Conflict):** Fuerza al mock del Service a lanzar un `ConflictException` y valida que el Controller lo mapee correctamente a un status `409` con su mensaje.
+4. `POST /api/tasks` - **4.3 Error Inesperado (500 Internal Server Error):** Fuerza al mock del Service a lanzar un `Error` genérico y valida que el Controller responda con status `500`.
+
+
+
+---
+
+### 2️⃣ Archivo: `src/tasks/tasks.service.spec.ts` (Test Unitario del Service/UseCase)
+
+**Especificaciones técnicas:**
+
+* **Propósito:** Validar el comportamiento real de las reglas de negocio.
+* **Framework:** Jest.
+* **Mocks:** Mockea **únicamente** el `TasksRepository`. No mockees el propio `TasksService` bajo ninguna circunstancia.
+* **Casos de prueba a incluir (Deben fallar inicialmente al no estar escrita la lógica):**
+1. `create()` - **Comportamiento Exitoso:** Al recibir un DTO válido, interactúa con el mock del repositorio (`repository.save`), persiste los datos y retorna la entidad de dominio de la tarea creada con sus campos correctos.
+2. `create()` - **Validación de Conflicto (Título Duplicado):** Haz que el mock del repositorio retorne una tarea existente al buscar por título (`repository.findByTitle`). Verifica que el Service lance una excepción de negocio específica o un `ConflictException`.
+3. `create()` - **Manejo de Error Inesperado:** Haz que el mock del repositorio falle de forma genérica (ej: caída de BD) y verifica que el Service propague el error o lance la excepción correspondiente sin controlar HTTP.
+
+
+
+---
+
+### Reglas estrictas de generación de código:
+
+* No inventes campos, propiedades o entidades que no pertenezcan al contrato funcional adjunto.
+* Usa tipado estricto de TypeScript para los DTOs, interfaces y entidades de dominio.
+* Asegúrate de que los archivos estén completamente limpios, auto-contenidos y listos para ejecutar con `npm run test` o `npm run test:e2e`.
+
+Genera el código de ambos archivos a continuación:
