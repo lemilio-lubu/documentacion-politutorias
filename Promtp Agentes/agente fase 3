@@ -1,0 +1,53 @@
+Actúa como un Arquitecto Backend Senior experto en NestJS, TypeScript, SOLID, Clean Architecture y patrones de diseño. Tu tarea es generar el código de refactorización correspondiente a la **fase REFACTOR del ciclo TDD**.
+
+Actualmente, todo el comportamiento funcional ya está implementado y el 100% de los tests (unitarios y e2e) están pasando con éxito. Tu objetivo es elevar la calidad del diseño interno del código sin alterar en absoluto su comportamiento externo.
+
+Analiza la estructura actual y aplica las siguientes directrices de refactorización en los archivos de la funcionalidad (`src/tasks/`):
+
+---
+
+### 🔍 Archivos a revisar y reestructurar
+
+* `src/tasks/tasks.controller.ts`
+* `src/tasks/tasks.service.ts` (o segregación en UseCases)
+* `src/tasks/entities/task.entity.ts`
+* `src/tasks/dto/create-task.dto.ts`
+* Creación de archivos adicionales necesarios (`mappers`, `interfaces`, `use-cases`).
+
+---
+
+### 🛠️ Mejoras Estructurales y Patrones a aplicar
+
+1. **Separación de Capas y Single Responsibility (SRP):**
+* Asegura que el Controlador solo maneje el protocolo HTTP (decoradores, códigos de estado, validación de DTO).
+* Extrae la lógica del servicio hacia un caso de uso especializado (ej. `CreateTaskUseCase`) si el servicio acumula múltiples responsabilidades.
+
+
+2. **Uso de Mappers desacoplados:**
+* Introduce un patrón **Mapper** explícito (ej. `TaskMapper`) para transformar el DTO entrante a la entidad de dominio, y la entidad de dominio al DTO de respuesta. El controlador no debe conocer ni acoplarse directamente a las entidades de persistencia de la base de datos.
+
+
+3. **Patrón Repository e Inversión de Dependencias (DIP):**
+* Define una interfaz abstracta o un puerto (`ITasksRepository`) en la capa de dominio/aplicación.
+* Haz que la implementación concreta del repositorio dependa de esta interfaz para asegurar que las reglas de negocio no estén acopladas a TypeORM, Prisma o cualquier ORM específico.
+
+
+4. **Clean Code y Reducción de Complejidad:**
+* Revisa y reduce la complejidad ciclomática de las validaciones y del manejo de errores.
+* Aplica nombres altamente descriptivos y significativos para variables, métodos y clases. Elimina cualquier duplicación de lógica (DRY) y minimiza la carga cognitiva dividiendo funciones extensas en métodos privados de única responsabilidad.
+
+
+
+---
+
+### 🚫 Reglas estrictas (Lo que NO se debe tocar bajo ninguna circunstancia)
+
+* **Contrato HTTP Inalterable:** No modifiques las rutas de los endpoints, los métodos HTTP (`POST`), ni los códigos de estado devueltos (`201`, `400`, `409`, `500`).
+* **Estructura JSON intacta:** La estructura exacta del handshake (campos del Request y del Response) acordada con el frontend debe permanecer idéntica.
+* **Tests Inmutables:** No edites ni una sola línea de los archivos de pruebas (`*.spec.ts` o `*.e2e-spec.ts`).
+
+---
+
+### 🏁 Verificación Final
+
+Una vez realizada la reestructuración arquitectónica, todas las interfaces y dependencias deben quedar correctamente inyectadas en los módulos de NestJS. Ejecuta mentalmente los flujos y reescribe el código de producción asegurando que, al correr `npm run test` y `npm run test:e2e`, **todos los tests sigan pasando en VERDE a la primera**.
