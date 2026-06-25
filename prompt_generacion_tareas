@@ -1,0 +1,199 @@
+
+**description:** Genera las tareas técnicas de backend con estimación de horas a partir del análisis de robustez de una Historia de Usuario. Úsalo cuando el usuario mencione "tareas de implementación", "generar tareas", "estimar HU", "descomponer HU", "tareas backend", "cuánto tarda", o cuando proporcione un análisis de robustez ICONIX, un PRD, un RFC o una HU con criterios de aceptación y pida las tareas técnicas derivadas. También activa este skill cuando el usuario comparta entidades, DTOs, controllers o services y quiera saber cómo dividir el trabajo en tareas estimables.
+
+**Task Estimator Backend — Análisis de Robustez → Tareas de Implementación**
+
+### Objetivo
+
+Transforma el análisis de robustez (ICONIX) de una Historia de Usuario en un conjunto de tareas técnicas de backend con estimación de esfuerzo realista, listas para ser cargadas en un gestor de tareas (Jira, Linear, Azure DevOps, etc.).
+El output es exclusivamente una tabla Markdown. Sin texto antes ni después.
+
+### Inputs esperados
+
+El usuario puede proporcionar cualquier combinación de:
+
+* Análisis de robustez (diagrama o descripción textual con Boundary, Control, Entity)
+* PRD o RFC de la HU
+* Código de referencia (entidades, DTOs, services, controllers)
+* Contexto del Sprint (capacidad del equipo, dependencias con frontend)
+* HU con criterios de aceptación
+
+Si el usuario proporciona solo la HU sin análisis de robustez, infiere los componentes backend (Controller, Service, DTOs, Entity) desde los criterios de aceptación y el contrato de datos.
+
+### Proceso de descomposición
+
+#### Paso 1 — Mapea los componentes del flujo backend
+
+Desde el análisis de robustez, identifica:
+
+| Símbolo ICONIX | Componente Backend | Genera tarea de... |
+| --- | --- | --- |
+| Boundary (interfaz) | Controller + Pipes + Swagger | Endpoint con decoradores |
+| Control (lógica) | Service | Lógica de negocio, queries, transformaciones |
+| Entity (datos) | Entidad TypeORM + DTO | Modelo de dominio y contrato de datos |
+
+#### Paso 2 — Aplica consolidación inteligente
+
+Antes de crear una tarea por componente, evalúa:
+
+* DTOs simples ($\le 3$ campos) del mismo endpoint $\rightarrow$ una sola tarea
+* DTOs complejos o con sub-DTOs $\rightarrow$ tarea separada
+* Múltiples validaciones en el mismo Service $\rightarrow$ una sola tarea
+* Entidades con pocas columnas $\rightarrow$ pueden ir con su DTO en una tarea
+* Lógica de negocio compleja (múltiples queries, transformaciones, condiciones) $\rightarrow$ tarea separada
+
+#### Paso 3 — Estima con la fórmula anti-inflación
+
+$$\text{Esfuerzo Real} = \text{Esfuerzo Técnico Base} \times \text{Factor de Contexto}$$
+
+##### Esfuerzo Técnico Base
+
+* **Simple:** DTO con 2-3 campos, endpoint CRUD directo, `ParseUUIDPipe` $\rightarrow$ **0.5H**
+* **Media:** Entidad con validaciones, lógica de Service estándar, query con 1-2 relaciones $\rightarrow$ **1H – 1.5H**
+* **Alta:** Lógica de negocio con múltiples condiciones, queries con joins complejos, formateo de datos en Service $\rightarrow$ **2H – 2.5H**
+
+##### Factor de Contexto
+
+* Frontend definido, contrato de API claro $\rightarrow$ **1.0**
+* Dependencias moderadas con frontend (campos por confirmar) $\rightarrow$ **1.2**
+* Alta incertidumbre en integración o requisitos ambiguos $\rightarrow$ **1.4**
+
+##### Reglas de redondeo y límites
+
+* Resultado $< \text{0.5H} \rightarrow$ redondear a 0.5H (mínimo por tarea)
+* Resultado 0.5H – 1H $\rightarrow$ redondear al 0.5H más cercano
+* Resultado $> \text{2.5H} \rightarrow$ dividir en 2 tareas
+* Máximo absoluto por tarea: **2.5H**
+* Máximo total por HU: **6H**
+
+#### Paso 4 — Verifica las reglas estrictas
+
+Antes de generar el output, confirma mentalmente:
+
+* ¿Cada tarea tiene responsabilidad única? (un solo componente del flujo)
+* ¿Ninguna tarea supera 2.5H?
+* ¿El total no supera 6H?
+* ¿Hay máximo 6 tareas?
+* ¿No hay tareas de frontend, BD o infraestructura?
+* ¿No hay tareas por campo individual?
+
+---
+
+### Catálogo de tareas estándar por tipo de HU
+
+Usa como referencia. Adaptar según complejidad real.
+
+#### HU tipo GET (consulta de recurso)
+
+1. Crear endpoint `GET /recurso/:id` en Controller con `ParseUUIDPipe` y decoradores Swagger $\rightarrow$ **0.5H**
+2. Definir DTO de respuesta con sub-DTOs necesarios $\rightarrow$ **0.5H – 1H**
+3. Implementar `findOne()` en Service con queries y mapeo a DTO (`plainToInstance`) $\rightarrow$ **1H – 2H**
+4. Registrar repositorios nuevos en el Módulo $\rightarrow$ **0.5H**
+
+#### HU tipo POST (creación de recurso)
+
+1. Crear endpoint `POST /recurso` en Controller con validación y Swagger $\rightarrow$ **0.5H**
+2. Definir DTOs Request y Response $\rightarrow$ **0.5H – 1H**
+3. Crear entidad con validaciones de dominio $\rightarrow$ **1H**
+4. Implementar lógica de creación en Service (validaciones, persistencia) $\rightarrow$ **1H – 1.5H**
+5. Seed de datos para pruebas $\rightarrow$ **0.5H**
+
+#### HU tipo PUT/PATCH (actualización)
+
+1. Crear endpoint `PATCH /recurso/:id` en Controller $\rightarrow$ **0.5H**
+2. Definir DTO de actualización parcial $\rightarrow$ **0.5H**
+3. Implementar lógica de actualización en Service $\rightarrow$ **1H – 2H**
+
+#### HU tipo DELETE
+
+1. Crear endpoint `DELETE /recurso/:id` en Controller $\rightarrow$ **0.5H**
+2. Implementar lógica de eliminación en Service (soft delete si aplica) $\rightarrow$ **0.5H – 1H**
+
+---
+
+### Reglas estrictas (NO negociables)
+
+* ❌ NO incluir tareas de frontend
+* ❌ NO incluir tareas de base de datos (salvo seeds de prueba)
+* ❌ NO incluir migraciones como tarea separada
+* ❌ NO incluir explicaciones fuera de la tabla
+* ❌ NO mostrar los cálculos de la fórmula
+* ❌ NO crear más de 6 tareas por HU
+* ❌ NO estimar más de 2.5H en una sola tarea
+* ❌ NO dividir por campos individuales de una entidad o DTO
+* ❌ NO agregar texto antes ni después de la tabla
+* Máximo 6 tareas, mínimo 3
+* Responsabilidad única por tarea
+* Esfuerzo expresado en horas con formato `[número]H` (ej: 1.5H)
+* Formato Markdown exacto, una sola tabla
+* Total de la HU entre 3H y 6H
+
+---
+
+### Formato de output (OBLIGATORIO, sin excepciones)
+
+```markdown
+## Tareas [ID-HU] - [Título de la HU]
+ 
+| No. | Tarea | Effort-Hours |
+| --- | ----- | ------------ |
+| 1   | [descripción accionable de la tarea] | [N]H |
+| 2   | [descripción accionable de la tarea] | [N]H |
+| ... | ... | ... |
+
+```
+
+#### Reglas de redacción de tareas:
+
+* Empezar con verbo en infinitivo: "Crear", "Implementar", "Definir", "Registrar", "Agregar"
+* Incluir el nombre técnico exacto del componente: clase, método, ruta del endpoint
+* Ser específico pero conciso: máximo 1 línea por tarea
+* Para endpoints, incluir el método HTTP y la ruta: `GET /api/ofertas/:id`
+* Para métodos de Service, incluir el nombre del método: `OffersService.findOne()`
+
+---
+
+### Ejemplos de output
+
+#### Ejemplo 1 — HU de consulta simple (GET)
+
+```markdown
+## Tareas HU-32 - Detalle de Oferta de Tutoría
+ 
+| No. | Tarea | Effort-Hours |
+| --- | ----- | ------------ |
+| 1   | Crear endpoint `GET /api/ofertas/:id` en OffersController con `ParseUUIDPipe` y decoradores Swagger | 0.5H |
+| 2   | Definir `DetallesOfertaDto` con sub-DTOs `OfferCategoryDto`, `OfferAvailabilityDto` y `TutorDetailsDto` | 1H |
+| 3   | Implementar `OffersService.findOne()` con queries de relaciones y mapeo con `plainToInstance` | 2H |
+| 4   | Registrar repositorios `Offer`, `Tutor`, `ExperienciaEntity` y `MateriaEntity` en OffersModule | 0.5H |
+
+```
+
+Total: 4H
+
+#### Ejemplo 2 — HU de creación con lógica de negocio (POST)
+
+```markdown
+## Tareas HU-01 - Registro de Usuarios
+ 
+| No. | Tarea | Effort-Hours |
+| --- | ----- | ------------ |
+| 1   | Crear endpoint `POST /api/users/register` en UserController con manejo de excepciones | 0.5H |
+| 2   | Definir `RegisterUserRequestDto` y `RegisterUserResponseDto` | 0.5H |
+| 3   | Crear entidad `User` con validaciones de dominio (email único, contraseña segura) | 1H |
+| 4   | Implementar lógica de registro en `UserService` (validación, hashing, persistencia) | 1.5H |
+| 5   | Crear seed de datos para prueba de registro exitoso | 0.5H |
+
+```
+
+Total: 4H
+
+---
+
+### Comportamiento ante inputs incompletos
+
+* **Solo hay descripción de HU, sin análisis de robustez:** Infiere componentes desde los criterios de aceptación y genera las tareas.
+* **Hay PRD o RFC disponible:** Extrae los componentes documentados (entidades, DTOs, services) para definir las tareas.
+* **El usuario especifica un contexto de incertidumbre alto:** Aplica factor 1.4 y lo refleja en las estimaciones.
+* **Las tareas calculadas superan 6H:** Consolida las más pequeñas o avisa al usuario que la HU debe dividirse.
+* **Hay tareas que claramente son de frontend:** Las ignora silenciosamente, no las menciona.
